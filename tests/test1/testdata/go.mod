@@ -1,4 +1,4 @@
-module github.com/takaaa220/dependency-checker
+module github.com/takaaa220/dependency-checker-test1
 
 go 1.21.0
 
