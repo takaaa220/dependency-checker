@@ -1,0 +1,10 @@
+[
+  {
+    "files": ["domain/**/*.go"],
+    "deny": ["github.com/takaaa220/dependency-checker-test1/usecase"]
+  },
+  {
+    "files": ["usecase/**/*.go"],
+    "deny": ["fmt"]
+  }
+]

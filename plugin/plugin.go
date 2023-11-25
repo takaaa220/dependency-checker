@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/takaaa220/dependency-checker/analyzer"
 	"golang.org/x/tools/go/analysis"
@@ -10,5 +11,7 @@ import (
 func New(conf any) ([]*analysis.Analyzer, error) {
 	fmt.Printf("My configuration (%[1]T): %#[1]v\n", conf)
 
-	return []*analysis.Analyzer{analyzer.DependencyCheckAnalyzer}, nil
+	pwd := os.Getenv("PWD")
+
+	return []*analysis.Analyzer{analyzer.NewDependencyCheckAnalyzer(pwd, []analyzer.Rule{})}, nil
 }

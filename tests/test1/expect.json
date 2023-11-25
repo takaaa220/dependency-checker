@@ -1,5 +1,14 @@
 [
   {
-    "error": "hello world"
+    "message": "import github.com/takaaa220/dependency-checker-test1/usecase/pkg1 is not allowed",
+    "start": 93,
+    "end": 165,
+    "fileName": "/Users/takaaa220/dev/go-dependency-check/tests/test1/testdata/domain/pkg1/a.go"
+  },
+  {
+    "fileName": "/Users/takaaa220/dev/go-dependency-check/tests/test1/testdata/usecase/pkg1/a.go",
+    "start": 24,
+    "end": 29,
+    "message": "import fmt is not allowed"
   }
 ]
