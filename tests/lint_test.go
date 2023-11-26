@@ -57,9 +57,10 @@ func Test_Integration(t *testing.T) {
 			analyzerRules := make([]analyzer.Rule, len(rules))
 			for i, rule := range rules {
 				analyzerRules[i] = analyzer.Rule{
-					Files: rule.Files,
-					Allow: rule.Allow,
-					Deny:  rule.Deny,
+					Files:   rule.Files,
+					Allow:   rule.Allow,
+					Deny:    rule.Deny,
+					Message: rule.Message,
 				}
 			}
 
@@ -106,9 +107,10 @@ type Result struct {
 }
 
 type Rule struct {
-	Files []string `json:files`
-	Allow []string `json:allow`
-	Deny  []string `json:deny`
+	Files   []string `json:files`
+	Allow   []string `json:allow`
+	Deny    []string `json:deny`
+	Message string   `json:message`
 }
 
 type nopeTesting struct{}

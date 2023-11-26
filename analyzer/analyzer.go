@@ -38,28 +38,38 @@ func NewDependencyCheckAnalyzer(pwd string, rules []Rule) *analysis.Analyzer {
 }
 
 type Rule struct {
-	Files []string
-	Allow []string
-	Deny  []string
+	Files   []string
+	Allow   []string
+	Deny    []string
+	Message string
 }
 
-func (r Rule) disallow(importPath string) bool {
+// errorMessage, disallowed を返す
+func (r Rule) check(importPath string) (string, bool) {
 	if len(r.Allow) > 0 {
 		if !slices.ContainsFunc(r.Allow, func(p string) bool {
 			return strings.Contains(importPath, p)
 		}) {
-			return true
+			return r.errorMessage(importPath), true
 		}
 	}
 	if len(r.Deny) > 0 {
 		if slices.ContainsFunc(r.Deny, func(p string) bool {
 			return strings.Contains(importPath, p)
 		}) {
-			return true
+			return r.errorMessage(importPath), true
 		}
 	}
 
-	return false
+	return "", false
+}
+
+func (r Rule) errorMessage(importPath string) string {
+	if r.Message != "" {
+		return r.Message
+	}
+
+	return fmt.Sprintf("import %s is not allowed", importPath)
 }
 
 type dependencyChecker struct {
@@ -81,12 +91,12 @@ func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 				// remove double quote
 				importPath := importSpec.Path.Value[1 : len(importSpec.Path.Value)-1]
 
-				if rule.disallow(importPath) {
+				if errorMessage, disallowed := rule.check(importPath); disallowed {
 					pass.Report(analysis.Diagnostic{
 						Pos:            importSpec.Pos(),
 						End:            importSpec.End(),
 						Category:       "dependency_check",
-						Message:        fmt.Sprintf("import %s is not allowed", importPath),
+						Message:        errorMessage,
 						SuggestedFixes: nil,
 					})
 				}

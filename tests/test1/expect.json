@@ -9,6 +9,6 @@
     "fileName": "/Users/takaaa220/dev/go-dependency-check/tests/test1/testdata/usecase/pkg1/a.go",
     "start": 24,
     "end": 29,
-    "message": "import fmt is not allowed"
+    "message": "usecase should not depend on fmt"
   }
 ]

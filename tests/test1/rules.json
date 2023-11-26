@@ -5,6 +5,7 @@
   },
   {
     "files": ["usecase/**/*.go"],
-    "deny": ["fmt"]
+    "deny": ["fmt"],
+    "message": "usecase should not depend on fmt"
   }
 ]
