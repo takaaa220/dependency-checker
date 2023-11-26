@@ -1,0 +1,8 @@
+{
+  "allow": [
+    {
+      "from": "^domain/.*",
+      "to": "^(github.com/takaaa220/dependency-checker-test2/domain|fmt)"
+    }
+  ]
+}

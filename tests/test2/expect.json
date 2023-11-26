@@ -1,0 +1,8 @@
+[
+  {
+    "message": "import github.com/takaaa220/dependency-checker-test2/usecase/pkg1 is not allowed",
+    "start": 93,
+    "end": 165,
+    "fileName": "/Users/takaaa220/dev/go-dependency-check/tests/test2/testdata/domain/pkg1/a.go"
+  }
+]

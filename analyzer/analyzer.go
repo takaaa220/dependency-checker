@@ -27,9 +27,17 @@ func NewDependencyCheckAnalyzer(pwd string, setting Setting) *analysis.Analyzer 
 }
 
 func (c dependencyChecker) findDenyRules(filePath string) []Rule {
+	return c.findRules(filePath, c.setting.Deny)
+}
+
+func (c dependencyChecker) findAllowRules(filePath string) []Rule {
+	return c.findRules(filePath, c.setting.Allow)
+}
+
+func (c dependencyChecker) findRules(filePath string, allRules []Rule) []Rule {
 	rules := []Rule{}
 
-	for _, rule := range c.setting.Deny {
+	for _, rule := range allRules {
 		relativeFilePath, err := filepath.Rel(c.pwd, filePath)
 		if err != nil {
 			panic(err)
@@ -45,7 +53,8 @@ func (c dependencyChecker) findDenyRules(filePath string) []Rule {
 }
 
 type Setting struct {
-	Deny []Rule
+	Deny  []Rule
+	Allow []Rule
 }
 
 type Rule struct {
@@ -86,16 +95,30 @@ func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 		pos := pass.Fset.Position(file.Pos())
 		filePath := pos.Filename
 
-		rules := d.findDenyRules(filePath)
-		if len(rules) == 0 {
+		allowRules := d.findAllowRules(filePath)
+		denyRules := d.findDenyRules(filePath)
+		if len(allowRules) == 0 && len(denyRules) == 0 {
 			continue
 		}
 
 		for _, importSpec := range file.Imports {
-			for _, rule := range rules {
-				// remove double quote
-				importPath := importSpec.Path.Value[1 : len(importSpec.Path.Value)-1]
+			// remove double quote
+			importPath := importSpec.Path.Value[1 : len(importSpec.Path.Value)-1]
 
+			for _, rule := range allowRules {
+				if matched := rule.matchImportPath(importPath); !matched {
+					pass.Report(analysis.Diagnostic{
+						Pos:            importSpec.Pos(),
+						End:            importSpec.End(),
+						Category:       "dependency_check",
+						Message:        rule.errorMessage(importPath),
+						SuggestedFixes: nil,
+					})
+					break
+				}
+			}
+
+			for _, rule := range denyRules {
 				if matched := rule.matchImportPath(importPath); matched {
 					pass.Report(analysis.Diagnostic{
 						Pos:            importSpec.Pos(),
@@ -104,6 +127,7 @@ func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 						Message:        rule.errorMessage(importPath),
 						SuggestedFixes: nil,
 					})
+					break
 				}
 			}
 		}

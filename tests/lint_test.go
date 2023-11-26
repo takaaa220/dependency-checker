@@ -55,11 +55,19 @@ func Test_Integration(t *testing.T) {
 			}
 
 			analyzerSetting := analyzer.Setting{
-				Deny: make([]analyzer.Rule, len(setting.Deny)),
+				Deny:  make([]analyzer.Rule, len(setting.Deny)),
+				Allow: make([]analyzer.Rule, len(setting.Allow)),
 			}
 
 			for i, rule := range setting.Deny {
 				analyzerSetting.Deny[i] = analyzer.Rule{
+					From:    rule.From,
+					To:      rule.To,
+					Message: rule.Message,
+				}
+			}
+			for i, rule := range setting.Allow {
+				analyzerSetting.Allow[i] = analyzer.Rule{
 					From:    rule.From,
 					To:      rule.To,
 					Message: rule.Message,
@@ -109,7 +117,8 @@ type Result struct {
 }
 
 type Setting struct {
-	Deny []Rule `json:deny`
+	Deny  []Rule `json:deny`
+	Allow []Rule `json:allow`
 }
 
 type Rule struct {
