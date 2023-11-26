@@ -2,32 +2,21 @@ package analyzer
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
-	"slices"
-	"strings"
+	"regexp"
 
 	"golang.org/x/tools/go/analysis"
 )
 
-func NewDependencyCheckAnalyzer(pwd string, rules []Rule) *analysis.Analyzer {
-	rulesByFilePath := make(map[string][]Rule)
+type dependencyChecker struct {
+	pwd     string
+	setting Setting
+}
 
-	for _, rule := range rules {
-		for _, filePattern := range rule.Files {
-			allFiles, err := filepath.Glob(path.Join(pwd, filePattern))
-			if err != nil {
-				panic(err)
-			}
-
-			for _, file := range allFiles {
-				rulesByFilePath[file] = append(rulesByFilePath[file], rule)
-			}
-		}
-	}
-
+func NewDependencyCheckAnalyzer(pwd string, setting Setting) *analysis.Analyzer {
 	dependencyChecker := dependencyChecker{
-		rulesByFilePath: rulesByFilePath,
+		pwd:     pwd,
+		setting: setting,
 	}
 
 	return &analysis.Analyzer{
@@ -37,31 +26,51 @@ func NewDependencyCheckAnalyzer(pwd string, rules []Rule) *analysis.Analyzer {
 	}
 }
 
+func (c dependencyChecker) findDenyRules(filePath string) []Rule {
+	rules := []Rule{}
+
+	for _, rule := range c.setting.Deny {
+		relativeFilePath, err := filepath.Rel(c.pwd, filePath)
+		if err != nil {
+			panic(err)
+		}
+
+		matched := rule.matchFilePath(relativeFilePath)
+		if matched {
+			rules = append(rules, rule)
+		}
+	}
+
+	return rules
+}
+
+type Setting struct {
+	Deny []Rule
+}
+
 type Rule struct {
-	Files   []string
-	Allow   []string
-	Deny    []string
-	Message string
+	From    string // file relative path from module root (regexp)
+	To      string // import path (regexp)
+	Message string // error message
+}
+
+func (r Rule) matchFilePath(relativeFilePath string) bool {
+	matched, err := regexp.MatchString(r.From, relativeFilePath)
+	if err != nil {
+		panic(err)
+	}
+
+	return matched
 }
 
 // errorMessage, disallowed を返す
-func (r Rule) check(importPath string) (string, bool) {
-	if len(r.Allow) > 0 {
-		if !slices.ContainsFunc(r.Allow, func(p string) bool {
-			return strings.Contains(importPath, p)
-		}) {
-			return r.errorMessage(importPath), true
-		}
-	}
-	if len(r.Deny) > 0 {
-		if slices.ContainsFunc(r.Deny, func(p string) bool {
-			return strings.Contains(importPath, p)
-		}) {
-			return r.errorMessage(importPath), true
-		}
+func (r Rule) matchImportPath(importPath string) bool {
+	matched, err := regexp.MatchString(r.To, importPath)
+	if err != nil {
+		panic(err)
 	}
 
-	return "", false
+	return matched
 }
 
 func (r Rule) errorMessage(importPath string) string {
@@ -72,17 +81,13 @@ func (r Rule) errorMessage(importPath string) string {
 	return fmt.Sprintf("import %s is not allowed", importPath)
 }
 
-type dependencyChecker struct {
-	rulesByFilePath map[string][]Rule
-}
-
 func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		pos := pass.Fset.Position(file.Pos())
 		filePath := pos.Filename
 
-		rules, found := d.rulesByFilePath[filePath]
-		if !found {
+		rules := d.findDenyRules(filePath)
+		if len(rules) == 0 {
 			continue
 		}
 
@@ -91,12 +96,12 @@ func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 				// remove double quote
 				importPath := importSpec.Path.Value[1 : len(importSpec.Path.Value)-1]
 
-				if errorMessage, disallowed := rule.check(importPath); disallowed {
+				if matched := rule.matchImportPath(importPath); matched {
 					pass.Report(analysis.Diagnostic{
 						Pos:            importSpec.Pos(),
 						End:            importSpec.End(),
 						Category:       "dependency_check",
-						Message:        errorMessage,
+						Message:        rule.errorMessage(importPath),
 						SuggestedFixes: nil,
 					})
 				}

@@ -42,24 +42,26 @@ func Test_Integration(t *testing.T) {
 				return
 			}
 
-			rulesFile, err := os.Open(filepath.Join(testName, "rules.json"))
+			rulesFile, err := os.Open(filepath.Join(testName, "setting.json"))
 			if err != nil {
 				t.Errorf("failed to open rules.json: %v", err)
 				return
 			}
 
-			var rules []Rule
-			if err := json.NewDecoder(rulesFile).Decode(&rules); err != nil {
+			var setting Setting
+			if err := json.NewDecoder(rulesFile).Decode(&setting); err != nil {
 				t.Errorf("failed to decode rules.json: %v", err)
 				return
 			}
 
-			analyzerRules := make([]analyzer.Rule, len(rules))
-			for i, rule := range rules {
-				analyzerRules[i] = analyzer.Rule{
-					Files:   rule.Files,
-					Allow:   rule.Allow,
-					Deny:    rule.Deny,
+			analyzerSetting := analyzer.Setting{
+				Deny: make([]analyzer.Rule, len(setting.Deny)),
+			}
+
+			for i, rule := range setting.Deny {
+				analyzerSetting.Deny[i] = analyzer.Rule{
+					From:    rule.From,
+					To:      rule.To,
 					Message: rule.Message,
 				}
 			}
@@ -67,7 +69,7 @@ func Test_Integration(t *testing.T) {
 			pwd := os.Getenv("PWD")
 			testdata := filepath.Join(pwd, testName, "testdata")
 
-			res := analysistest.Run(nopeTesting{}, testdata, analyzer.NewDependencyCheckAnalyzer(testdata, analyzerRules), "./...")
+			res := analysistest.Run(nopeTesting{}, testdata, analyzer.NewDependencyCheckAnalyzer(testdata, analyzerSetting), "./...")
 
 			result := []Result{}
 			for _, rep := range res {
@@ -106,11 +108,14 @@ type Result struct {
 	Message  string `json:error`
 }
 
+type Setting struct {
+	Deny []Rule `json:deny`
+}
+
 type Rule struct {
-	Files   []string `json:files`
-	Allow   []string `json:allow`
-	Deny    []string `json:deny`
-	Message string   `json:message`
+	From    string `json:from`
+	To      string `json:to`
+	Message string `json:message`
 }
 
 type nopeTesting struct{}

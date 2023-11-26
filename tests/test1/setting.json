@@ -1,0 +1,13 @@
+{
+  "deny": [
+    {
+      "from": "^domain/.*",
+      "to": "^github.com/takaaa220/dependency-checker-test1/usecase"
+    },
+    {
+      "from": "^usecase/.*",
+      "to": "^fmt$",
+      "message": "usecase should not depend on fmt"
+    }
+  ]
+}
