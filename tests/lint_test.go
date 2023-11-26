@@ -77,7 +77,13 @@ func Test_Integration(t *testing.T) {
 			pwd := os.Getenv("PWD")
 			testdata := filepath.Join(pwd, testName, "testdata")
 
-			res := analysistest.Run(nopeTesting{}, testdata, analyzer.NewDependencyCheckAnalyzer(testdata, analyzerSetting), "./...")
+			a, err := analyzer.NewDependencyCheckAnalyzer(testdata, analyzerSetting)
+			if err != nil {
+				t.Errorf("failed to create analyzer: %v", err)
+				return
+			}
+
+			res := analysistest.Run(nopeTesting{}, testdata, a, "./...")
 
 			result := []Result{}
 			for _, rep := range res {

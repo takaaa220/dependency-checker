@@ -13,17 +13,26 @@ type dependencyChecker struct {
 	setting Setting
 }
 
-func NewDependencyCheckAnalyzer(pwd string, setting Setting) *analysis.Analyzer {
+func NewDependencyCheckAnalyzer(pwd string, setting Setting) (*analysis.Analyzer, error) {
 	dependencyChecker := dependencyChecker{
 		pwd:     pwd,
 		setting: setting,
+	}
+
+	err := dependencyChecker.compile()
+	if err != nil {
+		return nil, err
 	}
 
 	return &analysis.Analyzer{
 		Name: "dependency_check",
 		Doc:  "dependency_check is a static analysis tool to check",
 		Run:  dependencyChecker.run,
-	}
+	}, nil
+}
+
+func (c dependencyChecker) compile() error {
+	return c.setting.compile()
 }
 
 func (c dependencyChecker) findDenyRules(filePath string) []Rule {
@@ -36,14 +45,8 @@ func (c dependencyChecker) findAllowRules(filePath string) []Rule {
 
 func (c dependencyChecker) findRules(filePath string, allRules []Rule) []Rule {
 	rules := []Rule{}
-
 	for _, rule := range allRules {
-		relativeFilePath, err := filepath.Rel(c.pwd, filePath)
-		if err != nil {
-			panic(err)
-		}
-
-		matched := rule.matchFilePath(relativeFilePath)
+		matched := rule.matchFilePath(filePath)
 		if matched {
 			rules = append(rules, rule)
 		}
@@ -57,29 +60,55 @@ type Setting struct {
 	Allow []Rule
 }
 
+func (s Setting) compile() error {
+	for i, rule := range s.Deny {
+		fromRegexp, err := regexp.Compile(rule.From)
+		if err != nil {
+			return fmt.Errorf("failed to compile regexp from %s: %w", rule.From, err)
+		}
+
+		toRegexp, err := regexp.Compile(rule.To)
+		if err != nil {
+			return fmt.Errorf("failed to compile regexp to %s: %w", rule.To, err)
+		}
+
+		s.Deny[i].fromRegexp = fromRegexp
+		s.Deny[i].toRegexp = toRegexp
+	}
+
+	for i, rule := range s.Allow {
+		fromRegexp, err := regexp.Compile(rule.From)
+		if err != nil {
+			return fmt.Errorf("failed to compile regexp from %s: %w", rule.From, err)
+		}
+
+		toRegexp, err := regexp.Compile(rule.To)
+		if err != nil {
+			return fmt.Errorf("failed to compile regexp to %s: %w", rule.To, err)
+		}
+
+		s.Allow[i].fromRegexp = fromRegexp
+		s.Allow[i].toRegexp = toRegexp
+	}
+
+	return nil
+}
+
 type Rule struct {
-	From    string // file relative path from module root (regexp)
-	To      string // import path (regexp)
-	Message string // error message
+	From       string // file relative path from module root (regexp)
+	To         string // import path (regexp)
+	Message    string // error message
+	fromRegexp *regexp.Regexp
+	toRegexp   *regexp.Regexp
 }
 
 func (r Rule) matchFilePath(relativeFilePath string) bool {
-	matched, err := regexp.MatchString(r.From, relativeFilePath)
-	if err != nil {
-		panic(err)
-	}
-
-	return matched
+	return r.fromRegexp.MatchString(relativeFilePath)
 }
 
 // errorMessage, disallowed を返す
 func (r Rule) matchImportPath(importPath string) bool {
-	matched, err := regexp.MatchString(r.To, importPath)
-	if err != nil {
-		panic(err)
-	}
-
-	return matched
+	return r.toRegexp.MatchString(importPath)
 }
 
 func (r Rule) errorMessage(importPath string) string {
@@ -95,8 +124,13 @@ func (d dependencyChecker) run(pass *analysis.Pass) (interface{}, error) {
 		pos := pass.Fset.Position(file.Pos())
 		filePath := pos.Filename
 
-		allowRules := d.findAllowRules(filePath)
-		denyRules := d.findDenyRules(filePath)
+		relativeFilePath, err := filepath.Rel(d.pwd, filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get relative file path (pwd: %s, filepath: %s): %w", d.pwd, filePath, err)
+		}
+
+		allowRules := d.findAllowRules(relativeFilePath)
+		denyRules := d.findDenyRules(relativeFilePath)
 		if len(allowRules) == 0 && len(denyRules) == 0 {
 			continue
 		}
